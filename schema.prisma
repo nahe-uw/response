@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}
+
+model InquiryHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  inquiryContent  String   // 問い合わせ内容
+  inquiryElements String   // 分解内容をJSON形式で保存
+  replyContent    String?  // 生成された返信文章
+  dataSummary     String   // 生成されたデータ要約
+  createdAt       DateTime @default(now())
+  
+  @@map("InquiryHistories")
+}
+
+model APIConnection {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  apiURL        String
+  authToken     String
+  createdAt     DateTime @default(now())
+  tables        Table[]  // Tableモデルとのリレーション
+  
+  @@map("APIConnections")
+}
+
+model Table {
+  id               Int       @id @default(autoincrement())
+  tableName        String
+  tableDescription String?  // デフォルトはnull
+  apiConnectionId  Int
+  columns          Column[]  // Columnモデルとのリレーション
+  apiConnection    APIConnection @relation(fields: [apiConnectionId], references: [id])
+  
+  @@map("Tables")
+}
+
+
+model Column {
+  id               Int       @id @default(autoincrement())
+  tableId          Int
+  columnName       String
+  columnDescription String?  // デフォルトはnull、ユーザーによる意味付け後に追加
+  isUserId         Boolean   @default(false)
+  table            Table     @relation(fields: [tableId], references: [id])
+  valueMappings    ValueMapping[] @relation("ColumnToValueMapping") 
+
+  @@map("Columns")
+}
+
+model ValueMapping {
+  id            Int          @id @default(autoincrement())
+  columnId      Int
+  value         String       // 特定の値
+  meaning       String       // 値の意味
+  createdAt     DateTime     @default(now())
+  column        Column       @relation(fields: [columnId], references: [id], name: "ColumnToValueMapping")
+  
+  @@map("ValueMappings")
+}
+
+model TableRelation {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  fromTable    String   // 連結元のテーブル名
+  fromColumn   String   // 連結元のカラム名
+  toTable      String   // 連結先のテーブル名
+  toColumn     String   // 連結先のカラム名
+  createdAt    DateTime @default(now())
+  
+  @@map("TableRelations")
+}
+
+
+
+model DataCategory {
+  id               Int             @id @default(autoincrement())
+  userId           Int
+  categoryName     String
+  createdAt        DateTime        @default(now())
+  tables           CategoryTableMapping[]  // カテゴリとテーブルの関連付け
+  
+  @@map("DataCategories")
+}
+
+model CategoryTableMapping {
+  id               Int             @id @default(autoincrement())
+  DataCategoryId   Int
+  tableName        String
+  createdAt        DateTime        @default(now())
+  dataCategory     DataCategory    @relation(fields: [DataCategoryId], references: [id])
+  
+  @@map("CategoryTableMappings")
+}
+
+enum KnowledgeType {
+  url
+  pdf
+}
+
+model Knowledge {
+  id           Int         @id @default(autoincrement())
+  userId       Int
+  knowledgeName String
+  type         KnowledgeType
+  content      String
+  created_at   DateTime    @default(now())
+
+  @@map("Knowledge")
+}
+
+model TrainingData {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  fileName   String
+  filePath   String
+  created_at DateTime @default(now())
+
+  @@map("TrainingData")
+}
+
+model TrainingModel {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  modelName    String
+  endpointUrl  String
+  status       String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@map("TrainingModels")
+}
+
+
+model ServiceAccount {
+  id                 Int      @id @default(autoincrement())
+  userId             Int
+  serviceAccountKey  String
+  created_at         DateTime @default(now())
+
+  @@map("ServiceAccounts")
+}
+
+
+model RevisionHistory {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  inquiryContent   String   // 問い合わせ内容を保存
+  revisionContent  String   // 修正された返信文章を保存
+  createdAt        DateTime @default(now())
+
+  @@map("RevisionHistories")
+}
