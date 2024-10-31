@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 export default function Mapping() {
   const [tables, setTables] = useState([]);
@@ -17,6 +18,7 @@ export default function Mapping() {
     toTable: '',
     toColumn: '',
   });
+  const [tableRelations, setTableRelations] = useState([]);
 
   // セッションチェック
   useEffect(() => {
@@ -234,10 +236,48 @@ export default function Mapping() {
     }
   };
 
+  // テーブル関係の取得
+  useEffect(() => {
+    const fetchTableRelations = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          setMessage('Not authenticated');
+          return;
+        }
+
+        const res = await fetch('/api/mapping/relations', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+          setTableRelations(data.relations);
+        } else {
+          setMessage(`Error: ${data.error}`);
+        }
+      } catch (error) {
+        setMessage('Failed to fetch table relations');
+      }
+    };
+
+    fetchTableRelations();
+  }, []);
+
   return (
     <div>
       <h1>Data Mapping</h1>
       {message && <p>{message}</p>}
+      
+      {/* ナビゲーションリンクを追加 */}
+      <div style={{ marginBottom: '20px' }}>
+        <Link href="/category">
+          Go to Data Categories
+        </Link>
+      </div>
       
       {/* 保存ボタンを上部に配置 */}
       <button onClick={handleSaveAll}>Save All Changes</button>
@@ -307,6 +347,22 @@ export default function Mapping() {
       <div style={{ marginTop: '20px' }}>
         <h2>Table Relations</h2>
         <button onClick={handleShowRelationForm}>Add Table Relation</button>
+        
+        {/* 既存の関係を表示 */}
+        <div style={{ marginTop: '10px' }}>
+          <h3>Existing Relations</h3>
+          {tableRelations.map(relation => (
+            <div key={relation.id} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ccc' }}>
+              <p>
+                From: {relation.fromTable}.{relation.fromColumn}
+              </p>
+              <p>
+                To: {relation.toTable}.{relation.toColumn}
+              </p>
+              <button onClick={() => handleDeleteRelation(relation.id)}>Delete</button>
+            </div>
+          ))}
+        </div>
         
         {showRelationForm && (
           <div style={{ marginTop: '10px' }}>
