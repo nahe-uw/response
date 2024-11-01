@@ -41,81 +41,66 @@ export default async function handler(req, res) {
       textContent = await extractTextFromPDF(buffer);
     } else if (type === 'url') {
       try {
-        // URLの形式チェック
-        const url = new URL(content);
+        const { url, zendeskAuth } = content;
         
-        // URLからコンテンツを取得（ヘッダーを追加）
-        const response = await fetch(content, {
+        // URLからZendeskの記事IDを抽出
+        const articleIdMatch = url.match(/articles\/(\d+)/);
+        if (!articleIdMatch) {
+          return res.status(400).json({ error: 'Invalid Zendesk article URL' });
+        }
+        const articleId = articleIdMatch[1];
+
+        // Zendesk API URLの構築
+        const apiUrl = `https://${zendeskAuth.domain}/api/v2/help_center/articles/${articleId}`;
+        
+        // Zendesk APIへのリクエスト
+        const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          },
-          redirect: 'follow',
-          timeout: 10000 // 10秒でタイムアウト
+            'Authorization': `Basic ${Buffer.from(`${zendeskAuth.email}/token:${zendeskAuth.apiToken}`).toString('base64')}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         });
 
-        // エラーレスポンスの詳細なハンドリング
         if (!response.ok) {
-          console.error('URL fetch error:', {
+          console.error('Zendesk API error:', {
             status: response.status,
             statusText: response.statusText,
-            url: content
+            url: apiUrl
           });
 
-          // エラーの種類に応じたメッセージ
-          let errorMessage;
-          switch (response.status) {
-            case 403:
-              errorMessage = 'Access forbidden. The website may be blocking automated access.';
-              break;
-            case 404:
-              errorMessage = 'The requested content was not found.';
-              break;
-            case 429:
-              errorMessage = 'Too many requests. Please try again later.';
-              break;
-            default:
-              errorMessage = `Failed to fetch content: ${response.status} ${response.statusText}`;
-          }
-
           return res.status(400).json({ 
-            error: errorMessage,
+            error: `Failed to fetch Zendesk article: ${response.status} ${response.statusText}`,
             details: {
               status: response.status,
               statusText: response.statusText,
-              url: content
+              url: apiUrl
             }
           });
         }
 
-        const htmlContent = await response.text();
+        const data = await response.json();
         
-        // HTMLからテキストを抽出（改善版）
-        textContent = htmlContent
+        // 記事の本文を取得
+        textContent = data.article?.body;
+        
+        if (!textContent) {
+          return res.status(400).json({ error: 'No content found in the Zendesk article' });
+        }
+
+        // HTMLからテキストを抽出
+        textContent = textContent
           .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
           .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
 
-        if (!textContent) {
-          return res.status(400).json({ error: 'No readable content found at URL' });
-        }
-
-        // テキストの長さチェック
-        if (textContent.length < 50) {
-          return res.status(400).json({ error: 'Content is too short or empty' });
-        }
-
       } catch (urlError) {
         console.error('URL processing error:', urlError);
         return res.status(400).json({ 
-          error: urlError instanceof TypeError ? 'Invalid URL format or network error' : 'Failed to process URL content',
+          error: 'Failed to process Zendesk article',
           details: urlError.message
         });
       }

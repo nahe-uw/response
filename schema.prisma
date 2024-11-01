@@ -124,6 +124,8 @@ model Knowledge {
   knowledgeName String
   type         KnowledgeType
   content      String
+  isOwner      Boolean     @default(false)  // コンテンツ所有者フラグを追加
+  accessToken  String?     // アクセストークンを追加（オプショナル）
   created_at   DateTime    @default(now())
 
   @@map("Knowledge")

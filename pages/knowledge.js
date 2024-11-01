@@ -10,6 +10,11 @@ export default function Knowledge() {
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [knowledgeList, setKnowledgeList] = useState([]);
+  const [isOwner, setIsOwner] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
+  const [zendeskEmail, setZendeskEmail] = useState('');
+  const [zendeskApiToken, setZendeskApiToken] = useState('');
+  const [zendeskDomain, setZendeskDomain] = useState('');
   const router = useRouter();
 
   // セッションチェック
@@ -79,7 +84,14 @@ export default function Knowledge() {
 
       let content;
       if (type === 'url') {
-        content = url;
+        content = {
+          url: url,
+          zendeskAuth: {
+            email: zendeskEmail,
+            apiToken: zendeskApiToken,
+            domain: zendeskDomain
+          }
+        };
       } else {
         const reader = new FileReader();
         await new Promise((resolve, reject) => {
@@ -103,7 +115,9 @@ export default function Knowledge() {
         body: JSON.stringify({
           knowledgeName,
           type,
-          content
+          content,
+          isOwner,
+          accessToken: isOwner ? accessToken : undefined
         }),
       });
 
@@ -177,6 +191,59 @@ export default function Knowledge() {
                 required
               />
             </label>
+          </div>
+        )}
+
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={isOwner}
+              onChange={(e) => setIsOwner(e.target.checked)}
+            />
+            I am the content owner
+          </label>
+        </div>
+
+        {isOwner && (
+          <div>
+            <label>
+              Access Token (Optional):
+              <input
+                type="text"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="Enter access token if required"
+              />
+            </label>
+          </div>
+        )}
+
+        {type === 'url' && (
+          <div>
+            <h3>Zendesk Authentication</h3>
+            <div>
+              <label>
+                Email:
+                <input
+                  type="email"
+                  value={zendeskEmail}
+                  onChange={(e) => setZendeskEmail(e.target.value)}
+                  placeholder="admin@company.com"
+                />
+              </label>
+            </div>
+            <div>
+              <label>
+                API Token:
+                <input
+                  type="password"
+                  value={zendeskApiToken}
+                  onChange={(e) => setZendeskApiToken(e.target.value)}
+                  placeholder="Zendesk API Token"
+                />
+              </label>
+            </div>
           </div>
         )}
 
